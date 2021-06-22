@@ -1,4 +1,5 @@
 const { ApolloServer, gql } = require("apollo-server");
+const {v1: uuid} = require("uuid")
 
 let authors = [
   {
@@ -88,7 +89,7 @@ const typeDefs = gql`
 
   type Book {
     title: String!
-    published: Int
+    published: Int!
     author: Author!
     id: ID!
     genres: [String!]!
@@ -100,20 +101,47 @@ const typeDefs = gql`
     allBooks(author: String, genre: String): [Book!]!
     allAuthors: [Author!]!
   }
+
+  type Mutation {
+    addBook(title: String!, author: String!, published: Int!, genres: [String!]!): Book 
+  }
 `;
 
 const resolvers = {
   Query: {
     bookCount: () => books.length,
     authorCount: () => authors.length,
-    allBooks: (root, args) => { 
-      const booksByAuthor = !args.author ? books : books.filter(book => book.author === args.author)
-      return !args.genre ? booksByAuthor : booksByAuthor.filter(book => book.genres.includes(args.genre))
+    allBooks: (root, args) => {
+      const booksByAuthor = !args.author
+        ? books
+        : books.filter((book) => book.author === args.author);
+      return !args.genre
+        ? booksByAuthor
+        : booksByAuthor.filter((book) => book.genres.includes(args.genre));
     },
-    allAuthors: () => authors
+    allAuthors: () => authors,
   },
   Author: {
-    bookCount: (root) => books.filter((book) => book.author === root.name).length
+    bookCount: (root) =>
+      books.filter((book) => book.author === root.name).length,
+  },
+  Mutation: {
+    addBook: (root, args) => {
+      const findOrAddAuthor = (name) => {
+        if (authors.some(author => author.name === args.author)) {
+          return authors.find(author => author.name === args.author) 
+        } else {
+          const newAuthor = {name: args.author, id: uuid()}  
+          authors = [...authors, newAuthor]
+            return newAuthor
+        }
+      }  
+
+      const author = findOrAddAuthor(args.author) 
+      const newBook = {...args, id: uuid(), author}
+      books = [...books, newBook]
+      return newBook
+    }
   }
 };
 
